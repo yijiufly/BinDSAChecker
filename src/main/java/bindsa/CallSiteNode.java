@@ -8,7 +8,7 @@ import java.util.Map;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.listing.Function;
 
-public class CallSiteNode extends DSNode {
+public class CallSiteNode extends DSNode implements Comparable{
 	private ArrayList<Address> callPath;
 	private String tokens;
 	private HashSet<Address> resolvedAddr;
@@ -239,6 +239,15 @@ public class CallSiteNode extends DSNode {
 
 	public void addFuncArgInSCC(Function funcArgInSCC) {
 		this.funcArgInSCC.add(funcArgInSCC);
+	}
+	
+
+	@Override
+	public int compareTo(Object o) {
+		CallSiteNode other = (CallSiteNode) o;
+		Long addr1 = this.getLoc().getOffset();
+		Long addr2 = other.getLoc().getOffset();
+		return addr1.compareTo(addr2);  
 	}
 
 }

@@ -23,4 +23,8 @@ public class FreeFunction extends ExternalFunctionBase {
 		// TODO Auto-generated method stub
 		
 	}
+    
+    public static Set<String> getStaticSymbols() {
+    	return staticSymbols;
+    }
 }

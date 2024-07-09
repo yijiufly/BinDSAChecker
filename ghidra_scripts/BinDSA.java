@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
+import java.util.TreeSet;
 
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
@@ -29,8 +30,11 @@ import bindsa.DebugUtil;
 import bindsa.GlobalRegion;
 import bindsa.GlobalState;
 import bindsa.Graph;
+import bindsa.Location;
 import bindsa.Pair;
+import bindsa.checkers.MemChecker;
 import funcs.FunctionModelManager;
+import funcs.libcfuncs.FreeFunction;
 import funcs.stdfuncs.CppStdModelBase;
 import ghidra.app.cmd.data.CreateArrayCmd;
 import ghidra.app.cmd.function.ApplyFunctionDataTypesCmd;
@@ -73,7 +77,7 @@ import ghidra.program.model.symbol.SymbolTable;
 import ghidra.util.exception.InvalidInputException;
 import ghidra.util.task.TaskMonitor;
 
-public class IndirectCallTargetResolving extends GhidraScript {
+public class BinDSA extends GhidraScript {
 	private int nextId = 0;
 	Address textBegin;
 	Address textEnd;
@@ -509,6 +513,7 @@ public class IndirectCallTargetResolving extends GhidraScript {
 			mem.setReadFunc(graph.getF());
 			mem.addMemAccessInstr(pcodeOp.getSeqnum().getTarget());
 			graph.addMemAccessInstrMap(pcodeOp.getSeqnum().getTarget(), mem);
+			MemChecker.checkMemVuls(mem, pcodeOp.getSeqnum().getTarget());
 			break;
 		case PcodeOp.STORE:
 			mem = graph.getCell(pcodeOp.getInput(1));
@@ -523,7 +528,7 @@ public class IndirectCallTargetResolving extends GhidraScript {
 			graph.addMemAccessInstrMap(pcodeOp.getSeqnum().getTarget(), mem);
 			Cell val = graph.getCell(pcodeOp.getInput(2));
 			mem.addOutEdges(val);
-
+			MemChecker.checkMemVuls(mem, pcodeOp.getSeqnum().getTarget());
 			break;
 		case PcodeOp.BRANCH:
 			break;
@@ -536,7 +541,7 @@ public class IndirectCallTargetResolving extends GhidraScript {
 		case PcodeOp.CALL:
 			Address addr = pcodeOp.getInput(0).getAddress();
 			Function fp = this.currentProgram.getFunctionManager().getFunctionAt(addr);
-			if (fp != null && (fp.getName().equals("<EXTERNAL>::malloc") || fp.getName().equals("<EXTERNAL>::calloc")||fp.getName().equals("malloc") || fp.getName().equals("calloc") || fp.getName().equals("<EXTERNAL>::operator.new")|| fp.getName().equals("operator.new"))
+			if (fp != null && (fp.getName().equals("<EXTERNAL>::malloc") || fp.getName().equals("<EXTERNAL>::calloc")||fp.getName().equals("malloc") || fp.getName().equals("calloc") || fp.getName().equals("<EXTERNAL>::operator.new")|| fp.getName().contains("operator.new"))
 					&& pcodeOp.getOutput() != null) {
 				out = graph.getCell(pcodeOp.getOutput());
 				if (fp.getName().contains("malloc") && pcodeOp.getInput(1) != null && pcodeOp.getInput(1).isConstant()) {
@@ -547,7 +552,7 @@ public class IndirectCallTargetResolving extends GhidraScript {
 				}
 				out.getParent().setOnHeap(true);
 				out.getParent().addLocations(
-						new Pair<String, Long>("H_" + pcodeOp.getSeqnum().getTarget().toString(), (long) 0));
+						new Location("H_" + pcodeOp.getSeqnum().getTarget().toString(), (long) 0));
 				break;
 			}
 			if (fp != null && fp.getName().contains("memcpy") && pcodeOp.getInputs().length >= 3) {
@@ -567,6 +572,12 @@ public class IndirectCallTargetResolving extends GhidraScript {
 		        }
 		        break;
 			}
+			
+			if (FreeFunction.getStaticSymbols().contains(fp.getName(false))) {
+				MemChecker.checkExternalCallParameters(pcodeOp.getSeqnum().getTarget(), fp, graph.getCell(pcodeOp.getInput(1)));
+				break;
+			}
+			
 			ArrayList<Cell> callargs = new ArrayList<Cell>();
 			for (int i = 1; i < pcodeOp.getNumInputs(); ++i) {
 				Cell argCell = graph.getCell(pcodeOp.getInput(i));
@@ -578,12 +589,15 @@ public class IndirectCallTargetResolving extends GhidraScript {
 				
 				// for NPD
 				Varnode arg = pcodeOp.getInput(i);
-				if (arg.getHigh().getDataType().equals(PointerDataType.dataType)) {
+				if (fp.isExternal() && arg.getHigh().getDataType() instanceof PointerDataType) {
 					argCell.addMemAccessInstr(pcodeOp.getSeqnum().getTarget());
 					graph.addMemAccessInstrMap(pcodeOp.getSeqnum().getTarget(), argCell);
+					MemChecker.checkMemVuls(argCell, pcodeOp.getSeqnum().getTarget());
 				}
 				callargs.add(argCell);
 			}
+			
+			
 			Cell func = graph.getCell(pcodeOp.getInput(0));
 			func.addPointers(addr);
 			Cell ret = graph.getCell(pcodeOp.getOutput());
@@ -1111,7 +1125,7 @@ public class IndirectCallTargetResolving extends GhidraScript {
 			Graph g = allBUGraphs.get(f);
 			if (g == null)
 				continue;
-			HashSet<CallSiteNode> clonedcs = new HashSet<CallSiteNode>();
+			TreeSet<CallSiteNode> clonedcs = new TreeSet<CallSiteNode>();
 			for (CallSiteNode cs : g.getCallNodes().values()) {
 				if (!cs.getResolved() && cs.getFunc() != null && cs.getFunc().getParent() != null) {
 					HashSet<Address> allAddr = new HashSet<Address>();
@@ -1346,6 +1360,7 @@ public class IndirectCallTargetResolving extends GhidraScript {
 
 
 	public void bottomUpAnalysis(ArrayList<Function> functionList) {
+		GlobalState.isBottomUp = true;
 		HashMap<Function, Integer> val = new HashMap<Function, Integer>();
 		HashMap<Function, Integer> low = new HashMap<Function, Integer>();
 		HashMap<Function, Boolean> inStack = new HashMap<Function, Boolean>();
@@ -1366,7 +1381,8 @@ public class IndirectCallTargetResolving extends GhidraScript {
 				tarjanVisitNode(func, inStack, low, val, stack);
 			}
 		}
-
+		GlobalState.isBottomUp = false;
+		MemChecker.print();
 	}
 
 	public void tarjanVisitNode(Function f, HashMap<Function, Boolean> inStack, HashMap<Function, Integer> low,
@@ -1483,7 +1499,7 @@ public class IndirectCallTargetResolving extends GhidraScript {
 					
 		}
 		bottomUpAnalysis(funcList);
-		handleUnresolvedCS();
+//		handleUnresolvedCS();
 
 		System.out.printf("runtime: %ds\n", (System.currentTimeMillis() - start) / 1000);
 		System.out.printf("memory %dM\n",

@@ -80,6 +80,7 @@ public class GlobalState {
 	public static HashSet<Function> targetFuncSuperSet = new HashSet<Function>();
 	public static boolean conductCollapse = true;
 	public static Program currentProgram;
+	public static boolean isBottomUp = false;
 
 	public static HashSet<Address> getPossibleFuncPointer(HashSet<Address> allpointers, Program curProgram) {
 		HashSet<Address> fps = new HashSet<Address>();

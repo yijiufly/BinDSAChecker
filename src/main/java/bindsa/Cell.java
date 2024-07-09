@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 
+import bindsa.checkers.MemChecker;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.Instruction;
@@ -340,13 +341,25 @@ public class Cell {
 			parent2.addAllLocations(parent1.getLocations());
 			parent1.getLocations().clear();
 		} else {
-			for (Pair<String, Long> location : parent1.getLocations()) {
-				Long v = location.getV();
-				location.setV(v + locOff);
+			for (Location location : parent1.getLocations()) {
+				Long v = location.getOffset();
+				location.setOffset(v + locOff);
 				parent2.addLocations(location);
 			}
 			parent1.getLocations().clear();
 		}
+		
+		if (GlobalState.isBottomUp && parent1.getOnHeap()) {
+			// parent2 is formal arg, it means that in actural arg it has been freed
+			if (parent2.getMemAccessInstr().size() > 0 && !parent1.isValid())
+				MemChecker.cwe416.addAll(parent2.getMemAccessInstr());
+			if (!parent2.isValid() && !parent1.isValid() && parent2.getFreedAddr() != parent1.getFreedAddr())
+				MemChecker.cwe415.add(parent2.getFreedAddr());
+			parent2.setOnHeap(true);
+		}
+		parent2.addAllMemAccessInstr(parent1.getMemAccessInstr());
+		if (!parent1.isValid())
+			parent2.setNoValid(parent1.getFreedAddr());
 
 		ArrayList<Integer> keyset = new ArrayList<Integer>();
 		keyset.addAll(parent1.getMembers().keySet());

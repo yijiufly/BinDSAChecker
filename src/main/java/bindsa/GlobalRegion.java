@@ -25,8 +25,6 @@ public class GlobalRegion extends Graph{
 	private HashMap<Address, Integer> regionSize;
 	private Program currentProgram;
 
-	
-
 	public GlobalRegion(Program currentProgram, HashMap<Function, Graph> allLocalGraphs, HashMap<Address, HashSet<Cell>> allMemAccessInstrMap) {
 		this.regionPtrMap = new HashMap<Address, Cell>();
 		this.regionSize = new HashMap<Address, Integer>();
@@ -70,7 +68,7 @@ public class GlobalRegion extends Graph{
 			HashSet<Address> visited = new HashSet<Address>();
 			if (loadGlobalVariableToMem(addr, baseCell, visited)) {
 				baseCell.addPointers(addr);
-				baseNode.addLocations(new Pair<String, Long>("G", addr.getOffset()));
+				baseNode.addLocations(new Location("G", addr.getOffset()));
 				regionPtrMap.put(addr, baseCell);
 				baseCell.getGlobalAddrs().add(addr);
 			}
@@ -277,7 +275,7 @@ public class GlobalRegion extends Graph{
 							// load mem recursively	
 							if (loadGlobalVariableToMem(newAddr, out, visited)) {
 								out.addPointers(newAddr);
-								out.getParent().addLocations(new Pair<String, Long>("G", newAddr.getOffset()));
+								out.getParent().addLocations(new Location("G", newAddr.getOffset()));
 								regionPtrMap.put(newAddr, out);
 								out.getGlobalAddrs().add(newAddr);
 							}
@@ -338,7 +336,7 @@ public class GlobalRegion extends Graph{
 					// load mem recursively	
 					if (loadGlobalVariableToMem(newAddr, out, visited)) {
 						out.addPointers(newAddr);
-						out.getParent().addLocations(new Pair<String, Long>("G", newAddr.getOffset()));
+						out.getParent().addLocations(new Location("G", newAddr.getOffset()));
 						regionPtrMap.put(newAddr, out);
 						out.getGlobalAddrs().add(newAddr);
 					}

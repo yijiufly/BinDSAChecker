@@ -206,7 +206,7 @@ public class Graph {
 					// TODO: need to check whether new node is necessary
 					DSNode dsNode = new DSNode(var.getPCAddress(), this);
 					Cell newCell = new Cell(dsNode, 0);
-					dsNode.addLocations(new Pair<String, Long>("S_" + f.getEntryPoint().toString(), (long) offset));
+					dsNode.addLocations(new Location("S_" + f.getEntryPoint().toString(), (long) offset));
 
 					if (offset < 0) {
 						Cell stackobj = getOrCreateFromStack(offset, var.getPCAddress());
@@ -250,7 +250,7 @@ public class Graph {
 				if (varBaseStr.equals("RSP") || varBaseStr.equals("ESP")) {
 					DSNode dsNode = new DSNode(var.getPCAddress(), this);
 					Cell newCell = new Cell(dsNode, 0);
-					dsNode.addLocations(new Pair<String, Long>("S_" + f.getEntryPoint().toString(), (long) offset));
+					dsNode.addLocations(new Location("S_" + f.getEntryPoint().toString(), (long) offset));
 					if (offset < 0) {
 						Cell stackobj = getOrCreateFromStack(offset, var.getPCAddress());
 						newCell.setOutEdges(stackobj);
@@ -284,7 +284,7 @@ public class Graph {
 				dsNode.addConstants((int) var.getOffset());
 			String varStr = var.toString(this.getCurrentProgram().getLanguage());
 			if (varStr.equals("RSP") || varStr.equals("ESP")) {
-				dsNode.addLocations(new Pair<String, Long>("S_" + f.getEntryPoint().toString(), (long) 0));
+				dsNode.addLocations(new Location("S_" + f.getEntryPoint().toString(), (long) 0));
 				newCell.setRSPOffset(this.getF(), 0);
 			}
 			Ev.put((VarnodeAST) var, newCell);

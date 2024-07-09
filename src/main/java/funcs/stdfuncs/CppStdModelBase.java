@@ -9,7 +9,7 @@ import bindsa.Cell;
 import bindsa.DebugUtil;
 import bindsa.GlobalState;
 import bindsa.Graph;
-import bindsa.Pair;
+import bindsa.Location;
 import ghidra.app.cmd.function.ApplyFunctionSignatureCmd;
 import ghidra.program.model.data.DataType;
 import ghidra.program.model.data.FunctionDefinitionDataType;
@@ -56,7 +56,7 @@ public abstract class CppStdModelBase {
     	Cell thisCell = g.getCell(pcode.getInput(1));
     	thisCell.getParent().setOnHeap(true);
     	thisCell.getParent().addLocations(
-				new Pair<String, Long>("H_" + pcode.getSeqnum().getTarget().toString(), (long) 0));
+				new Location("H_" + pcode.getSeqnum().getTarget().toString(), (long) 0));
     }
 
     /**

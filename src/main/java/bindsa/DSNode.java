@@ -47,7 +47,10 @@ public class DSNode {
 	private boolean isCharPointer;
 	private HashSet<Integer> stackObjPtrOffset;
 	private boolean isTainted;
-	private HashSet<Pair<String, Long>> locations;
+	private HashSet<Location> locations;
+	private boolean valid;
+	private Address freedAddr;
+	private HashSet<Address> used;
 
 	public DSNode() {
 		this.members = new HashMap<Integer, Cell>();
@@ -69,60 +72,50 @@ public class DSNode {
 		this.onStack = false;
 		this.isArg = false;
 		this.minkey = 0;
-		this.locations = new HashSet<Pair<String, Long>>();
+		this.valid = true;
+		this.locations = new HashSet<Location>();
+		this.used = new HashSet<Address>();
 	}
 
 	public DSNode(Address loc, Graph g) {
-		this.members = new HashMap<Integer, Cell>();
-		this.memberSize = new HashMap<Integer, Integer>();
-		this.setMemberType(new HashMap<Integer, Boolean>());
-		this.subTypes = new HashMap<Cell, HashSet<Cell>>();
-		this.stackObjPtrOffset = new HashSet<Integer>();
-		this.isArray = false;
-		this.hasStride = false;
-		this.collapsed = false;
-		this.allocationSites = new HashSet<AllocSite>();
-		this.mergedWith = new ArrayList<Address>();
-		this.mergedWith.add(loc);
-		this.possibleConstant = null;
-		this.possibleStride = null;
-		this.isConstant = false;
-		this.setCharPointer(false);
-		this.onHeap = false;
-		this.onStack = false;
-		this.isArg = false;
+		this();
 		this.loc = loc;
 		this.g = g;
-		this.minkey = 0;
-		this.locations = new HashSet<Pair<String, Long>>();
+		this.locations = new HashSet<Location>();
 	}
 
 	public DSNode(int size, Address loc, Graph g) {
+		this();
 		this.size = size;
-		this.members = new HashMap<Integer, Cell>();
-		this.memberSize = new HashMap<Integer, Integer>();
-		this.setMemberType(new HashMap<Integer, Boolean>());
-		this.subTypes = new HashMap<Cell, HashSet<Cell>>();
-		this.superTypes = new HashMap<Cell, HashSet<Cell>>();
-		this.stackObjPtrOffset = new HashSet<Integer>();
-		this.isArray = false;
-		this.hasStride = false;
-		this.collapsed = false;
-		this.allocationSites = new HashSet<AllocSite>();
-		this.mergedWith = new ArrayList<Address>();
-		this.mergedWith.add(loc);
-		this.possibleConstant = null;
-		this.possibleStride = null;
-		this.isConstant = false;
-		this.setCharPointer(false);
-		this.onHeap = false;
-		this.onStack = false;
-		this.isArg = false;
 		this.loc = loc;
 		this.g = g;
-		this.minkey = 0;
-		this.locations = new HashSet<Pair<String, Long>>();
 	}
+	
+	public boolean isValid() {
+		return valid;
+	}
+
+	public void setNoValid(Address addr) {
+		this.valid = false;
+		this.freedAddr = addr;
+	}
+	
+	public Address getFreedAddr() {
+		return freedAddr;
+	}
+	
+	public void addMemAccessInstr(Address addr) {
+		used.add(addr);
+	}
+	
+	public void addAllMemAccessInstr(HashSet<Address> memAccessInstr) {
+		this.used.addAll(memAccessInstr);
+	}
+	
+	public HashSet<Address> getMemAccessInstr() {
+		return used;
+	}
+
 
 	public boolean isOnStack() {
 		return onStack;
@@ -320,9 +313,9 @@ public class DSNode {
 		if (offset < minkey) {
 			int distance = minkey - offset;
 			minkey = offset;
-			for (Pair<String, Long> location : this.locations) {
-				long o = location.getV();
-				location.setV(o - distance);
+			for (Location location : this.locations) {
+				long o = location.getOffset();
+				location.setOffset(o - distance);
 			}
 		}
 	}
@@ -335,15 +328,15 @@ public class DSNode {
 		this.size = size;
 	}
 
-	public void addLocations(Pair<String, Long> p) {
+	public void addLocations(Location p) {
 		this.locations.add(p);
 	}
 
-	public void addAllLocations(HashSet<Pair<String, Long>> p) {
+	public void addAllLocations(HashSet<Location> p) {
 		this.locations.addAll(p);
 	}
 
-	public HashSet<Pair<String, Long>> getLocations() {
+	public HashSet<Location> getLocations() {
 		return this.locations;
 	}
 
@@ -587,6 +580,9 @@ public class DSNode {
 		newDS.possibleStride = this.possibleStride;
 		newDS.possibleConstant = this.possibleConstant;
 		newDS.mergedWith.addAll(this.mergedWith);
+		newDS.valid = this.valid;
+		newDS.freedAddr = this.freedAddr;
+		newDS.addAllMemAccessInstr(this.getMemAccessInstr());
 		for (AllocSite as : this.allocationSites) {
 			AllocSite asCopied = as.deepcopy();
 			asCopied.addCallpath(newg.getF());
